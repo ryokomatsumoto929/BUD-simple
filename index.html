@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BUD - 英語で話そう！</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#667eea" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="app-header">
+        <h1>🌟 BUD</h1>
+        <p class="tagline">英語で話そう！</p>
+      </header>
+
+      <!-- お助けフレーズ -->
+      <section class="helper-section">
+        <h3>💡 お助けフレーズ</h3>
+        <div class="helper-phrases">
+          <span class="phrase">📢 "Speak slowly, please"</span>
+          <span class="phrase">🔄 "One more time"</span>
+          <span class="phrase">❓ "What do you mean?"</span>
+        </div>
+      </section>
+
+      <!-- 録音セクション -->
+      <section class="record-section">
+        <button id="recordBtn" class="record-btn">
+          🎤 英語で話してみよう！
+        </button>
+        <div id="status" class="status">話したい時にボタンを押してね</div>
+      </section>
+
+      <!-- 結果表示 -->
+      <section class="result-section">
+        <div class="result-card">
+          <h3>📝 What you said</h3>
+          <div id="transcript" class="transcript">
+            Your English will appear here!
+          </div>
+        </div>
+
+        <div class="result-card">
+          <h3>✨ English Feedback</h3>
+          <div id="feedback" class="feedback">Great job! Keep practicing!</div>
+        </div>
+
+        <div class="result-card">
+          <h3>🎯 日本語サポート</h3>
+          <div id="support" class="support">英語で話してくれてありがとう！</div>
+        </div>
+      </section>
+
+      <!-- 履歴 -->
+      <section class="history-section">
+        <h3>📚 Today's English Practice</h3>
+        <div id="history" class="history"></div>
+        <button id="clearBtn" class="clear-btn">練習記録をクリア</button>
+      </section>
+
+      <footer class="app-footer">
+        <p>🌟 頑張って英語で話そう！ 🌟</p>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,240 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  color: white;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* ヘッダー */
+.app-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.app-header h1 {
+  font-size: 3em;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.tagline {
+  font-size: 1.2em;
+  opacity: 0.9;
+  font-weight: 300;
+}
+
+/* セクション共通 */
+section {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+section h3 {
+  font-size: 1.3em;
+  margin-bottom: 15px;
+  color: #ffd700;
+}
+
+/* お助けフレーズ */
+.helper-phrases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.phrase {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 0.9em;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 録音セクション */
+.record-section {
+  text-align: center;
+}
+
+.record-btn {
+  background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+  border: none;
+  border-radius: 50%;
+  width: 150px;
+  height: 150px;
+  font-size: 1.1em;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+
+.record-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+}
+
+.record-btn.recording {
+  background: linear-gradient(45deg, #ff4757, #c44569);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.status {
+  font-size: 1.1em;
+  min-height: 30px;
+  opacity: 0.9;
+}
+
+/* 結果表示 */
+.result-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.transcript,
+.feedback,
+.support {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  min-height: 50px;
+  font-size: 1.1em;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+/* 履歴 */
+.history {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.history-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 10px;
+  border-left: 4px solid #ffd700;
+}
+
+.history-time {
+  font-size: 0.9em;
+  opacity: 0.7;
+  margin-bottom: 5px;
+}
+
+.history-text {
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.history-message {
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.clear-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: white;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.clear-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* フッター */
+.app-footer {
+  text-align: center;
+  margin-top: 30px;
+  opacity: 0.8;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+  }
+
+  .app-header h1 {
+    font-size: 2.5em;
+  }
+
+  .record-btn {
+    width: 120px;
+    height: 120px;
+    font-size: 1em;
+  }
+
+  .helper-phrases {
+    flex-direction: column;
+  }
+
+  .phrase {
+    text-align: center;
+  }
+}
+
+/* ローディングアニメーション */
+.loading {
+  display: none;
+  text-align: center;
+  padding: 20px;
+}
+
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 3px solid #fff;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
