@@ -1,0 +1,335 @@
+// 音声認識の設定
+let recognition;
+let isRecording = false;
+
+// DOM要素の取得
+const recordBtn = document.getElementById("recordBtn");
+const status = document.getElementById("status");
+const transcript = document.getElementById("transcript");
+const feedback = document.getElementById("feedback");
+const support = document.getElementById("support");
+const history = document.getElementById("history");
+const clearBtn = document.getElementById("clearBtn");
+
+// 音声認識初期化（英語設定）
+function initSpeechRecognition() {
+  if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US"; // 英語設定
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function () {
+      isRecording = true;
+      recordBtn.textContent = "🔴 聞いているよ...";
+      recordBtn.classList.add("recording");
+      status.textContent = "英語で話してみて！（30秒以内）";
+
+      // 30秒でタイムアウト
+      setTimeout(() => {
+        if (isRecording) {
+          recognition.stop();
+        }
+      }, 30000);
+    };
+
+    recognition.onresult = async function (event) {
+      const result = event.results[0][0].transcript;
+      const confidence = event.results[0][0].confidence;
+
+      // 結果表示
+      transcript.textContent = result;
+
+      // フィードバック生成
+      // AI機能を使用
+      await showFeedbackWithAI(result);
+
+      // 日本語サポート
+      const japaneseSupport = generateJapaneseSupport(result);
+      support.textContent = japaneseSupport;
+
+      // 履歴保存
+      // 履歴保存は後で実装
+
+      status.textContent = "よくできたね！また話したくなったら押してね";
+    };
+
+    recognition.onerror = function (event) {
+      console.error("音声認識エラー:", event.error);
+      let errorMessage = "もう一度試してみてね！";
+
+      if (event.error === "no-speech") {
+        errorMessage = "声が聞こえませんでした。もう一度話してみて";
+      } else if (event.error === "network") {
+        errorMessage = "インターネット接続を確認してね";
+      }
+
+      status.textContent = errorMessage;
+      resetRecordButton();
+    };
+
+    recognition.onend = function () {
+      resetRecordButton();
+    };
+  } else {
+    status.textContent = "このブラウザでは音声認識がサポートされていません";
+    recordBtn.disabled = true;
+    recordBtn.textContent = "❌ 非対応";
+  }
+}
+
+// 録音ボタンリセット
+function resetRecordButton() {
+  isRecording = false;
+  recordBtn.textContent = "🎤 英語で話してみよう！";
+  recordBtn.classList.remove("recording");
+}
+
+// 英語フィードバック生成
+function generateEnglishFeedback(text, confidence = 0.8) {
+  const encouragements = [
+    "Excellent pronunciation! Well done!",
+    "Great job! Your English is improving!",
+    "Wonderful! Keep up the good work!",
+    "Amazing! You spoke clearly!",
+    "Fantastic effort! Try another one!",
+    "Perfect! Your English sounds great!",
+    "Outstanding! Keep practicing!",
+    "Brilliant! You're getting better!",
+    "Superb! That was very clear!",
+    "Marvelous! You're doing so well!",
+  ];
+
+  // 英語らしい単語が含まれているかチェック
+  const englishWords = [
+    "hello",
+    "hi",
+    "good",
+    "morning",
+    "afternoon",
+    "evening",
+    "my",
+    "name",
+    "is",
+    "i",
+    "am",
+    "like",
+    "love",
+    "want",
+    "thank",
+    "you",
+    "please",
+    "sorry",
+    "excuse",
+    "me",
+    "today",
+    "tomorrow",
+    "yesterday",
+    "how",
+    "what",
+    "where",
+    "when",
+    "why",
+    "who",
+    "can",
+    "could",
+    "would",
+    "should",
+  ];
+
+  const hasEnglish = englishWords.some((word) =>
+    text.toLowerCase().includes(word)
+  );
+
+  if (hasEnglish && confidence > 0.6) {
+    return encouragements[Math.floor(Math.random() * encouragements.length)];
+  } else if (hasEnglish) {
+    return "Good try! Keep practicing your pronunciation!";
+  } else {
+    return "Nice effort! Remember to speak in English. Try again!";
+  }
+}
+
+// 日本語サポートメッセージ
+function generateJapaneseSupport(text) {
+  const supportMessages = [
+    "英語で話してくれてありがとう！",
+    "英語にチャレンジしてえらいね！",
+    "すてきな英語だったよ！",
+    "英語で話すのって楽しいね！",
+    "また英語で話してね！",
+    "とても頑張ったね！すごいよ！",
+    "英語が上手になってきたね！",
+    "その調子でがんばろう！",
+  ];
+
+  return supportMessages[Math.floor(Math.random() * supportMessages.length)];
+}
+
+// 履歴保存（ローカルストレージ）
+function saveToHistory(text, message) {
+  const historyData = JSON.parse(localStorage.getItem("budHistory") || "[]");
+  const newEntry = {
+    timestamp: new Date().toLocaleString("ja-JP"),
+    text: text,
+    message: message,
+    date: new Date().toDateString(),
+  };
+
+  historyData.unshift(newEntry); // 新しいものを先頭に
+
+  // 最大20件まで保存
+  if (historyData.length > 20) {
+    historyData.pop();
+  }
+
+  localStorage.setItem("budHistory", JSON.stringify(historyData));
+  displayHistory();
+}
+
+// 履歴表示
+function displayHistory() {
+  const historyData = JSON.parse(localStorage.getItem("budHistory") || "[]");
+
+  if (historyData.length === 0) {
+    history.innerHTML =
+      '<p style="text-align: center; opacity: 0.7;">まだ練習記録がありません。<br>英語で話してみましょう！</p>';
+    return;
+  }
+
+  history.innerHTML = historyData
+    .map(
+      (entry, index) => `
+        <div class="history-item">
+            <div class="history-time">${entry.timestamp}</div>
+            <div class="history-text">💬 "${entry.text}"</div>
+            <div class="history-message">✨ ${entry.message}</div>
+        </div>
+    `
+    )
+    .join("");
+}
+
+// 履歴クリア
+function clearHistory() {
+  if (confirm("練習記録を全部消しますか？")) {
+    localStorage.removeItem("budHistory");
+    displayHistory();
+    status.textContent = "記録をクリアしました！新しく始めましょう";
+  }
+}
+
+// イベントリスナー
+recordBtn.addEventListener("click", function () {
+  if (!isRecording && recognition) {
+    recognition.start();
+  }
+});
+
+clearBtn.addEventListener("click", clearHistory);
+
+// 初期化
+document.addEventListener("DOMContentLoaded", function () {
+  initSpeechRecognition();
+  displayHistory();
+
+  // 初回メッセージ
+  if (!localStorage.getItem("budHistory")) {
+    status.textContent = "ようこそBUDへ！英語で話してみよう！";
+  }
+});
+
+// PWA用（将来の拡張）
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    // Service Worker登録は後で実装
+  });
+}
+
+// ===== Gemini AI機能追加 =====
+const GEMINI_API_KEY = "AIzaSyDXbJlTPGuSlTg40y9SjirjxAvbgkgx4W4";
+
+async function generateAIFeedback(recognizedText) {
+  try {
+    // より詳細で具体的なプロンプト
+    const prompt = `
+あなたは子ども向け英語学習の専門AI先生です。
+
+子どもが英語で「${recognizedText}」と話しました。
+
+以下の要素を含む30-50文字の励ましメッセージを日本語で生成してください：
+
+1. 具体的に良かった点を1つ褒める
+2. 簡単な改善提案（あれば）
+3. 温かい励ましの言葉
+
+例：
+- 「Hello」→「はっきりした発音でえらいね！次は'How are you?'も言ってみよう！」
+- 「My name is Tom」→「自己紹介が完璧！nameの発音がとてもきれいでした！」
+- 「I like apple」→「好きなものを英語で言えたね！appleの'a'の音がとても上手！」
+
+話した内容: "${recognizedText}"
+文字数: 30-50文字
+口調: 明るく温かい先生
+`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.8, // 創造性を上げる
+            topK: 40,
+            topP: 0.9,
+            maxOutputTokens: 100,
+          },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      let feedback = data.candidates[0].content.parts[0].text;
+
+      // 不要な文字を除去
+      feedback = feedback.replace(/[「」『』]/g, '"').trim();
+
+      return feedback;
+    } else {
+      throw new Error("Gemini API response invalid");
+    }
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+
+    // フォールバック用の多様なメッセージ
+    const fallbackMessages = [
+      `「${recognizedText}」って言えたね！発音がとてもきれい！`,
+      `英語で話してくれてありがとう！「${recognizedText}」完璧だよ！`,
+      `すごい！「${recognizedText}」の発音がとても上手でした！`,
+      `「${recognizedText}」をはっきり言えてえらいね！次もがんばろう！`,
+      `英語チャレンジ成功！「${recognizedText}」の言い方バッチリ！`,
+    ];
+
+    return fallbackMessages[
+      Math.floor(Math.random() * fallbackMessages.length)
+    ];
+  }
+}
