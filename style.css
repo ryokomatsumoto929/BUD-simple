@@ -238,3 +238,43 @@ section h3 {
     transform: rotate(360deg);
   }
 }
+
+/* AI フィードバック用スタイル */
+.loading {
+  text-align: center;
+  padding: 20px;
+}
+
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4F46E5;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.ai-feedback {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+}
+
+.ai-feedback h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.2em;
+}
+
+.ai-feedback small {
+  opacity: 0.8;
+  font-style: italic;
+}

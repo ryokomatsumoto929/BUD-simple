@@ -37,7 +37,7 @@ function initSpeechRecognition() {
       }, 30000);
     };
 
-    recognition.onresult = async function (event) {
+    recognition.onresult = function (event) {
       const result = event.results[0][0].transcript;
       const confidence = event.results[0][0].confidence;
 
@@ -45,15 +45,15 @@ function initSpeechRecognition() {
       transcript.textContent = result;
 
       // フィードバック生成
-      // AI機能を使用
-      await showFeedbackWithAI(result);
+      const englishFeedback = generateEnglishFeedback(result, confidence);
+      feedback.textContent = englishFeedback;
 
       // 日本語サポート
       const japaneseSupport = generateJapaneseSupport(result);
       support.textContent = japaneseSupport;
 
       // 履歴保存
-      // 履歴保存は後で実装
+      saveToHistory(result, englishFeedback);
 
       status.textContent = "よくできたね！また話したくなったら押してね";
     };
