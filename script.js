@@ -1,412 +1,425 @@
-// === BUD Simple: Gemini完全修正版 ===
+// BUD Simple - 音声認識・AIフィードバックアプリ
 
-// 音声認識の設定
-let recognition;
+// 設定
+const CONFIG = {
+  // バックエンドURL（本番URL固定）
+  BACKEND_URL: "https://bud-backend-945853872709.asia-northeast1.run.app",
+
+  MAX_RECORDING_TIME: 30000, // 30秒
+  STORAGE_KEY: "budSimpleHistory",
+};
+
+// グローバル変数
 let isRecording = false;
+let recognition = null;
+let mediaRecorder = null;
+let audioChunks = [];
 
-// DOM要素の取得
-const recordBtn = document.getElementById("recordBtn");
-const status = document.getElementById("status");
-const transcript = document.getElementById("transcript");
-const feedback = document.getElementById("feedback");
-const support = document.getElementById("support");
-const history = document.getElementById("history");
-const clearBtn = document.getElementById("clearBtn");
+// DOM要素
+const recordButton = document.getElementById("recordButton");
+const statusDiv = document.getElementById("status");
+const resultDiv = document.getElementById("result");
+const feedbackDiv = document.getElementById("feedback");
+const historyDiv = document.getElementById("history");
 
-// Gemini API設定（最適化済み）
-const GEMINI_API_KEY = "AIzaSyDs0iZaGYNHi4_Q5K7cbpynaDcdL6PtlAQ";
-const GEMINI_MODEL = "gemini-1.5-flash-latest"; // 最新の高速モデル
+// 初期化
+document.addEventListener("DOMContentLoaded", function () {
+  initializeSpeechRecognition();
+  loadHistory();
+  checkBackendConnection();
+});
 
-// === AI機能（完全修正版） ===
-async function generateAIFeedback(text) {
-  console.log("🤖 Gemini API 最適化版テスト開始:", text);
-
+// バックエンド接続確認
+async function checkBackendConnection() {
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: createOptimizedPrompt(text),
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            response_mime_type: "application/json",
-            response_schema: {
-              type: "object",
-              properties: {
-                feedback: {
-                  type: "string",
-                  description: "子ども向けの温かい英語フィードバック",
-                },
-                encouragement: {
-                  type: "string",
-                  description: "日本語での励ましメッセージ",
-                },
-                level_assessment: {
-                  type: "string",
-                  enum: ["beginner", "intermediate", "advanced"],
-                  description: "英語レベル評価",
-                },
-                next_suggestion: {
-                  type: "string",
-                  description: "次に挑戦してほしいこと",
-                },
-              },
-              required: ["feedback", "encouragement", "level_assessment"],
-            },
-            temperature: 0.7,
-            maxOutputTokens: 300,
-            topP: 0.8,
-            topK: 40,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_LOW_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-          ],
-        }),
-      }
-    );
-
-    console.log("📊 API Status:", response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ API Error Details:", errorText);
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
-    }
-
+    const response = await fetch(`${CONFIG.BACKEND_URL}/health`);
     const data = await response.json();
-    console.log("📥 Raw API Response:", data);
 
-    // レスポンス解析
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) {
-      throw new Error("Invalid response structure");
-    }
+    if (data.status === "healthy") {
+      console.log("✅ バックエンド接続OK:", data);
 
-    // JSON パース（構造化出力のため確実）
-    const aiResponse = JSON.parse(content);
-    console.log("✅ Parsed AI Response:", aiResponse);
-
-    return aiResponse;
-  } catch (error) {
-    console.error("💥 Gemini Error:", error);
-
-    // 高品質フォールバック
-    return createFallbackResponse(text);
-  }
-}
-
-// 最適化されたプロンプト生成
-function createOptimizedPrompt(englishText) {
-  return `あなたは優しい英語の先生です。日本の子ども（6-10歳）が英語で話した内容を聞いて、温かく励ますフィードバックをします。
-
-## 入力された英語
-「${englishText}」
-
-## フィードバック方針
-1. まず必ず褒める（頑張りを認める）
-2. 使った単語や表現を具体的に評価
-3. 簡単な改善提案（1つだけ）
-4. 次のチャレンジへの励まし
-
-## 出力形式（必須）
-以下のJSON形式で出力してください：
-{
-  "feedback": "英語でのフィードバック（簡単な単語で100文字以内）",
-  "encouragement": "日本語での励まし（50文字以内）", 
-  "level_assessment": "beginner/intermediate/advanced",
-  "next_suggestion": "次に挑戦してほしいこと（30文字以内）"
-}
-
-## 制約
-- 子どもが理解できる簡単な英語を使用
-- ネガティブな表現は避ける
-- 具体的で建設的なアドバイス
-- 温かく親しみやすい口調`;
-}
-
-// 高品質フォールバック
-function createFallbackResponse(text) {
-  const encouragements = [
-    "英語で話してくれてありがとう！",
-    "すてきな英語だったね！",
-    "英語にチャレンジしてえらいよ！",
-    "がんばって話してくれたね！",
-    "英語が上手になってきたね！",
-  ];
-
-  const feedbacks = [
-    "Great job speaking English!",
-    "Nice try! You did well!",
-    "Wonderful speaking!",
-    "You're getting better!",
-    "Keep up the good work!",
-  ];
-
-  return {
-    feedback: feedbacks[Math.floor(Math.random() * feedbacks.length)],
-    encouragement:
-      encouragements[Math.floor(Math.random() * encouragements.length)],
-    level_assessment: "beginner",
-    next_suggestion: "また英語で話してみてね！",
-  };
-}
-
-// フィードバック表示（修正版）
-async function showFeedbackWithAI(recognizedText) {
-  console.log("🎤 音声認識結果:", recognizedText);
-
-  const feedbackElement = document.getElementById("feedback");
-
-  // ローディング表示
-  feedbackElement.innerHTML = `
-    <div class="loading">
-      <div class="spinner"></div>
-      <p>AI先生が考え中...</p>
-    </div>
-  `;
-
-  // AI フィードバック生成（構造化レスポンス）
-  const aiResponse = await generateAIFeedback(recognizedText);
-  console.log("🤖 構造化AI応答:", aiResponse);
-
-  // 詳細フィードバック表示
-  feedbackElement.innerHTML = `
-    <div class="ai-feedback">
-      <h3>🤖 AI先生からのメッセージ</h3>
-      <div class="feedback-content">
-        <div class="english-feedback">
-          <strong>English:</strong> ${aiResponse.feedback}
-        </div>
-        <div class="japanese-encouragement">
-          <strong>日本語:</strong> ${aiResponse.encouragement}
-        </div>
-        <div class="level-info">
-          <strong>レベル:</strong> ${aiResponse.level_assessment}
-        </div>
-        ${
-          aiResponse.next_suggestion
-            ? `
-          <div class="suggestion">
-            <strong>次のチャレンジ:</strong> ${aiResponse.next_suggestion}
-          </div>
-        `
-            : ""
-        }
-      </div>
-      <small>あなたが言った言葉: "${recognizedText}"</small>
-    </div>
-  `;
-
-  // 履歴に構造化データを保存
-  saveToHistory(recognizedText, aiResponse);
-  console.log("✅ 構造化処理完了");
-}
-
-// === 音声認識初期化 ===
-function initSpeechRecognition() {
-  if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = function () {
-      isRecording = true;
-      recordBtn.textContent = "🔴 聞いているよ...";
-      recordBtn.classList.add("recording");
-      status.textContent = "英語で話してみて！（30秒以内）";
-
-      setTimeout(() => {
-        if (isRecording) {
-          recognition.stop();
-        }
-      }, 30000);
-    };
-
-    recognition.onresult = async function (event) {
-      const result = event.results[0][0].transcript;
-      console.log("🗣️ 認識結果:", result);
-
-      // 結果表示
-      transcript.textContent = result;
-
-      // AI フィードバック処理（構造化）
-      await showFeedbackWithAI(result);
-
-      // 日本語サポート
-      const japaneseSupport = generateJapaneseSupport(result);
-      support.textContent = japaneseSupport;
-
-      status.textContent = "よくできたね！また話したくなったら押してね";
-    };
-
-    recognition.onerror = function (event) {
-      console.error("音声認識エラー:", event.error);
-      let errorMessage = "もう一度試してみてね！";
-
-      if (event.error === "no-speech") {
-        errorMessage = "声が聞こえませんでした。もう一度話してみて";
-      } else if (event.error === "network") {
-        errorMessage = "インターネット接続を確認してね";
+      if (data.gemini_api === "available") {
+        console.log("✅ Gemini API利用可能");
+      } else {
+        console.warn("⚠️ Gemini API未設定 - フォールバックモードで動作");
       }
-
-      status.textContent = errorMessage;
-      resetRecordButton();
-    };
-
-    recognition.onend = function () {
-      resetRecordButton();
-    };
-  } else {
-    status.textContent = "このブラウザでは音声認識がサポートされていません";
-    recordBtn.disabled = true;
-    recordBtn.textContent = "❌ 非対応";
-  }
-}
-
-// === その他の関数 ===
-function resetRecordButton() {
-  isRecording = false;
-  recordBtn.textContent = "🎤 英語で話してみよう！";
-  recordBtn.classList.remove("recording");
-}
-
-function generateJapaneseSupport(text) {
-  const supportMessages = [
-    "英語で話してくれてありがとう！",
-    "英語にチャレンジしてえらいね！",
-    "すてきな英語だったよ！",
-    "英語で話すのって楽しいね！",
-    "また英語で話してね！",
-    "とても頑張ったね！すごいよ！",
-    "英語が上手になってきたね！",
-    "その調子でがんばろう！",
-  ];
-
-  return supportMessages[Math.floor(Math.random() * supportMessages.length)];
-}
-
-// 履歴保存（構造化データ対応）
-function saveToHistory(text, aiResponse) {
-  console.log("💾 構造化履歴保存:", text, aiResponse);
-
-  try {
-    const historyData = JSON.parse(localStorage.getItem("budHistory") || "[]");
-    const newEntry = {
-      timestamp: new Date().toLocaleString("ja-JP"),
-      text: text,
-      aiResponse: aiResponse, // 構造化データ
-      date: new Date().toDateString(),
-      id: Date.now(),
-    };
-
-    historyData.unshift(newEntry);
-
-    if (historyData.length > 20) {
-      historyData.pop();
     }
-
-    localStorage.setItem("budHistory", JSON.stringify(historyData));
-    displayHistory();
-    console.log("✅ 構造化履歴保存完了");
   } catch (error) {
-    console.error("❌ 履歴保存エラー:", error);
+    console.warn(
+      "⚠️ バックエンド接続失敗 - ローカルフィードバックで動作:",
+      error
+    );
+    showStatus(
+      "バックエンドに接続できません。ローカルモードで動作します。",
+      "warning"
+    );
   }
 }
 
-// 履歴表示（構造化データ対応）
-function displayHistory() {
-  const historyData = JSON.parse(localStorage.getItem("budHistory") || "[]");
-
-  if (historyData.length === 0) {
-    history.innerHTML =
-      '<p style="text-align: center; opacity: 0.7;">まだ練習記録がありません。<br>英語で話してみましょう！</p>';
+// 音声認識初期化
+function initializeSpeechRecognition() {
+  if (
+    !("webkitSpeechRecognition" in window) &&
+    !("SpeechRecognition" in window)
+  ) {
+    showStatus("このブラウザは音声認識に対応していません", "error");
+    recordButton.disabled = true;
     return;
   }
 
-  history.innerHTML = historyData
-    .map((entry, index) => {
-      // 新形式（構造化）と旧形式の両方に対応
-      const feedback = entry.aiResponse
-        ? entry.aiResponse.feedback
-        : entry.message;
-      const encouragement = entry.aiResponse
-        ? entry.aiResponse.encouragement
-        : "";
-      const level = entry.aiResponse ? entry.aiResponse.level_assessment : "";
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
 
-      return `
-        <div class="history-item">
-            <div class="history-time">${entry.timestamp}</div>
-            <div class="history-text">💬 "${entry.text}"</div>
-            <div class="history-feedback">
-                <div class="english-feedback">✨ ${feedback}</div>
-                ${
-                  encouragement
-                    ? `<div class="japanese-support">🇯🇵 ${encouragement}</div>`
-                    : ""
-                }
-                ${level ? `<div class="level-badge">📊 ${level}</div>` : ""}
-            </div>
-        </div>
-      `;
-    })
-    .join("");
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = function () {
+    console.log("🎤 音声認識開始");
+    isRecording = true;
+    updateUI();
+    showStatus("英語で話してください...", "recording");
+
+    // 最大録音時間のタイマー
+    setTimeout(() => {
+      if (isRecording) {
+        recognition.stop();
+      }
+    }, CONFIG.MAX_RECORDING_TIME);
+  };
+
+  recognition.onresult = function (event) {
+    let interimTranscript = "";
+    let finalTranscript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    // リアルタイム表示
+    const displayText = finalTranscript || interimTranscript;
+    if (displayText) {
+      resultDiv.innerHTML = `<strong>認識中:</strong> ${displayText}`;
+    }
+
+    // 最終結果の処理
+    if (finalTranscript) {
+      console.log("📝 最終結果:", finalTranscript);
+      processRecognitionResult(finalTranscript.trim());
+    }
+  };
+
+  recognition.onerror = function (event) {
+    console.error("❌ 音声認識エラー:", event.error);
+    isRecording = false;
+    updateUI();
+
+    let errorMessage = "音声認識エラーが発生しました";
+    switch (event.error) {
+      case "network":
+        errorMessage = "ネットワークエラーです。接続を確認してください。";
+        break;
+      case "not-allowed":
+        errorMessage =
+          "マイクの使用が許可されていません。設定を確認してください。";
+        break;
+      case "no-speech":
+        errorMessage = "音声が検出されませんでした。もう一度お試しください。";
+        break;
+    }
+
+    showStatus(errorMessage, "error");
+  };
+
+  recognition.onend = function () {
+    console.log("🔇 音声認識終了");
+    isRecording = false;
+    updateUI();
+  };
 }
 
-function clearHistory() {
-  if (confirm("練習記録を全部消しますか？")) {
-    localStorage.removeItem("budHistory");
-    displayHistory();
-    status.textContent = "記録をクリアしました！新しく始めましょう";
+// 録音ボタンクリック
+recordButton.addEventListener("click", function () {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
   }
-}
+});
 
-// === イベントリスナー ===
-recordBtn.addEventListener("click", function () {
-  if (!isRecording && recognition) {
+// 録音開始
+function startRecording() {
+  if (!recognition) {
+    showStatus("音声認識が利用できません", "error");
+    return;
+  }
+
+  try {
     recognition.start();
+  } catch (error) {
+    console.error("録音開始エラー:", error);
+    showStatus("録音を開始できませんでした", "error");
   }
-});
+}
 
-clearBtn.addEventListener("click", clearHistory);
+// 録音停止
+function stopRecording() {
+  if (recognition && isRecording) {
+    recognition.stop();
+  }
+}
 
-// === 初期化 ===
-document.addEventListener("DOMContentLoaded", function () {
-  initSpeechRecognition();
+// 認識結果処理
+async function processRecognitionResult(text) {
+  if (!text) return;
+
+  // 結果表示
+  resultDiv.innerHTML = `<strong>あなたの英語:</strong> "${text}"`;
+
+  // AIフィードバック取得
+  showStatus("AIがフィードバックを考えています...", "processing");
+
+  try {
+    const feedback = await generateAIFeedback(text);
+
+    // フィードバック表示
+    feedbackDiv.innerHTML = `<strong>AIからのメッセージ:</strong> ${feedback}`;
+
+    // 履歴に保存
+    addToHistory(text, feedback);
+
+    showStatus("完了！また話してみてください 😊", "success");
+  } catch (error) {
+    console.error("フィードバック生成エラー:", error);
+
+    // フォールバック
+    const fallbackFeedback = `「${text}」って英語で言えてえらいね！✨`;
+    feedbackDiv.innerHTML = `<strong>メッセージ:</strong> ${fallbackFeedback}`;
+    addToHistory(text, fallbackFeedback);
+
+    showStatus("完了！また話してみてください 😊", "success");
+  }
+}
+
+// AIフィードバック生成（バックエンド連携）
+async function generateAIFeedback(text) {
+  try {
+    const response = await fetch(`${CONFIG.BACKEND_URL}/api/feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: text }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    console.log("🤖 AIフィードバック:", data);
+
+    return data.feedback;
+  } catch (error) {
+    console.error("Gemini API呼び出しエラー:", error);
+
+    // ローカルフォールバック
+    return generateLocalFeedback(text);
+  }
+}
+
+// ローカルフィードバック（バックエンド接続失敗時）
+function generateLocalFeedback(text) {
+  const encouragements = [
+    "英語で話せてすばらしい！✨",
+    "がんばって話せたね！😊",
+    "英語チャレンジえらい！🌟",
+    "すてきな英語だったよ！👏",
+    "また話してみてね！💫",
+  ];
+
+  const randomEncouragement =
+    encouragements[Math.floor(Math.random() * encouragements.length)];
+  return `「${text}」って言えたね！${randomEncouragement}`;
+}
+
+// UI更新
+function updateUI() {
+  if (isRecording) {
+    recordButton.innerHTML = `
+            <div class="recording-animation"></div>
+            <span>録音中... (タップで停止)</span>
+        `;
+    recordButton.classList.add("recording");
+  } else {
+    recordButton.innerHTML = `
+            <span class="mic-icon">🎤</span>
+            <span>英語で話してみよう</span>
+        `;
+    recordButton.classList.remove("recording");
+  }
+}
+
+// ステータス表示
+function showStatus(message, type = "info") {
+  statusDiv.textContent = message;
+  statusDiv.className = `status ${type}`;
+
+  // 自動クリア（エラー以外）
+  if (type !== "error") {
+    setTimeout(() => {
+      if (statusDiv.textContent === message) {
+        statusDiv.textContent = "";
+        statusDiv.className = "status";
+      }
+    }, 3000);
+  }
+}
+
+// 履歴管理
+function addToHistory(text, feedback) {
+  const historyItem = {
+    timestamp: new Date().toLocaleString("ja-JP"),
+    english: text,
+    feedback: feedback,
+  };
+
+  let history = getHistory();
+  history.unshift(historyItem); // 新しいものを先頭に
+
+  // 最大20件まで保存
+  if (history.length > 20) {
+    history = history.slice(0, 20);
+  }
+
+  localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(history));
   displayHistory();
+}
 
-  if (!localStorage.getItem("budHistory")) {
-    status.textContent = "ようこそBUDへ！英語で話してみよう！";
+function getHistory() {
+  try {
+    const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error("履歴読み込みエラー:", error);
+    return [];
+  }
+}
+
+function displayHistory() {
+  const history = getHistory();
+
+  if (history.length === 0) {
+    historyDiv.innerHTML =
+      '<p class="no-history">まだ履歴がありません。英語で話してみましょう！</p>';
+    return;
   }
 
-  console.log("🚀 BUD Simple - Gemini最適化版 初期化完了");
+  historyDiv.innerHTML = "<h3>📚 今までのチャレンジ</h3>";
+
+  history.forEach((item, index) => {
+    const historyItemDiv = document.createElement("div");
+    historyItemDiv.className = "history-item";
+    historyItemDiv.innerHTML = `
+            <div class="history-header">
+                <span class="history-time">${item.timestamp}</span>
+                <button class="delete-btn" onclick="deleteHistoryItem(${index})" title="削除">×</button>
+            </div>
+            <div class="history-content">
+                <div class="history-english"><strong>🎤 英語:</strong> "${item.english}"</div>
+                <div class="history-feedback"><strong>🤖 AI:</strong> ${item.feedback}</div>
+            </div>
+        `;
+    historyDiv.appendChild(historyItemDiv);
+  });
+}
+
+function loadHistory() {
+  displayHistory();
+}
+
+function deleteHistoryItem(index) {
+  if (confirm("この履歴を削除しますか？")) {
+    let history = getHistory();
+    history.splice(index, 1);
+    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(history));
+    displayHistory();
+  }
+}
+
+function clearAllHistory() {
+  if (confirm("すべての履歴を削除しますか？")) {
+    localStorage.removeItem(CONFIG.STORAGE_KEY);
+    displayHistory();
+  }
+}
+
+// 履歴クリアボタン（必要に応じてHTMLに追加）
+function addClearButton() {
+  if (getHistory().length > 0) {
+    const clearButton = document.createElement("button");
+    clearButton.textContent = "履歴をすべて削除";
+    clearButton.className = "clear-history-btn";
+    clearButton.onclick = clearAllHistory;
+    historyDiv.appendChild(clearButton);
+  }
+}
+
+// お助けフレーズ機能
+const helpfulPhrases = [
+  "Hello, how are you?",
+  "Thank you very much",
+  "Nice to meet you",
+  "I like apples",
+  "What's your name?",
+  "I'm fine, thank you",
+  "See you later",
+  "Good morning",
+];
+
+function showHelpfulPhrases() {
+  const phrasesDiv =
+    document.getElementById("helpful-phrases") || createPhrasesDiv();
+
+  phrasesDiv.innerHTML = "<h3>💡 お助けフレーズ</h3>";
+  helpfulPhrases.forEach((phrase) => {
+    const phraseButton = document.createElement("button");
+    phraseButton.textContent = phrase;
+    phraseButton.className = "phrase-btn";
+    phraseButton.onclick = () => speakPhrase(phrase);
+    phrasesDiv.appendChild(phraseButton);
+  });
+}
+
+function createPhrasesDiv() {
+  const phrasesDiv = document.createElement("div");
+  phrasesDiv.id = "helpful-phrases";
+  phrasesDiv.className = "helpful-phrases";
+  document.querySelector(".container").appendChild(phrasesDiv);
+  return phrasesDiv;
+}
+
+function speakPhrase(phrase) {
+  if ("speechSynthesis" in window) {
+    const utterance = new SpeechSynthesisUtterance(phrase);
+    utterance.lang = "en-US";
+    utterance.rate = 0.8;
+    speechSynthesis.speak(utterance);
+  }
+}
+
+// 初期化時にお助けフレーズも表示
+document.addEventListener("DOMContentLoaded", function () {
+  showHelpfulPhrases();
 });
+
+console.log("🎯 BUD Simple アプリ初期化完了");
+console.log("📡 バックエンドURL:", CONFIG.BACKEND_URL);
